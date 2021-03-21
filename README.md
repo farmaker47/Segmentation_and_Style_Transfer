@@ -1,1 +1,1 @@
-# Keras OCR application
+# Segmentation and Style Transfer project
