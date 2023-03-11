@@ -134,8 +134,9 @@ class SegmentationAndStyleTransferViewModel(application: Application) :
                 }
             }
             scaledMaskBitmap =
-                    Bitmap.createScaledBitmap(output, bitmap.getWidth(), bitmap.getHeight(), true)
+                    Bitmap.createScaledBitmap(output, bitmap.width, bitmap.height, true)
             inferenceTime = SystemClock.uptimeMillis() - startTime
+            Log.v("inference", inferenceTime.toString())
         } catch (e: IOException) {
             Log.e("ImageSegmenter", "Error: ", e)
         }
