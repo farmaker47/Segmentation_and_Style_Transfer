@@ -162,6 +162,8 @@ class SegmentationAndStyleTransferViewModel(application: Application) :
             //val tensorImage = TensorImage.fromBitmap(bitmap)
             val image = BitmapImageBuilder(bitmap).build()
             imageSegmenter.segment(image)
+            inferenceTime = SystemClock.uptimeMillis() - startTime
+            Log.v("inference", inferenceTime.toString())
             //Log.v("segmenter_image",imageSegmenterResult.)
             /*Log.i("LIST", results[0].toString())
             val result = results[0]
