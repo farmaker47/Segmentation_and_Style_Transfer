@@ -126,7 +126,6 @@ class SegmentationAndStyleTransferViewModel(application: Application) :
     fun cropPersonFromPhoto(bitmap: Bitmap): Pair<Bitmap?, Long> {
         try {
             // Initialization
-            startTime = SystemClock.uptimeMillis()
             // Task library implementation.
             /*val baseOptions = BaseOptions.builder().useGpu().build()
             val options =
@@ -141,6 +140,7 @@ class SegmentationAndStyleTransferViewModel(application: Application) :
                     options
                 )*/
             // MediaPipe implementation.
+            startTime = SystemClock.uptimeMillis()
             val baseOptions = BaseOptions.builder()
                 .setModelAssetPath("deeplabv3.tflite")
                 .setDelegate(Delegate.CPU)
@@ -162,8 +162,6 @@ class SegmentationAndStyleTransferViewModel(application: Application) :
             //val tensorImage = TensorImage.fromBitmap(bitmap)
             val image = BitmapImageBuilder(bitmap).build()
             imageSegmenter.segment(image)
-            inferenceTime = SystemClock.uptimeMillis() - startTime
-            Log.v("inference", inferenceTime.toString())
             //Log.v("segmenter_image",imageSegmenterResult.)
             /*Log.i("LIST", results[0].toString())
             val result = results[0]
@@ -219,6 +217,7 @@ class SegmentationAndStyleTransferViewModel(application: Application) :
         )
         scaledMaskBitmap = imageFromPaul
         inferenceTime = SystemClock.uptimeMillis() - startTime
+        Log.v("inference", inferenceTime.toString())
     }
 
     /*private fun Int.toColor(): Int {

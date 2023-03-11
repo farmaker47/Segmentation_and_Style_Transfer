@@ -81,7 +81,7 @@ dependencies {
     implementation("org.tensorflow:tensorflow-lite-gpu:2.11.0")
     // Dependency for Segmentation with Task Library
     //implementation 'org.tensorflow:tensorflow-lite-task-vision:0.4.3'
-    implementation("com.google.mediapipe:tasks-vision:latest.release")
+    implementation("com.google.mediapipe:tasks-vision:0.1.0-alpha-5")
     implementation 'org.tensorflow:tensorflow-lite-support:0.4.3'
     //implementation 'org.tensorflow:tensorflow-lite-gpu-delegate-plugin:0.4.3'
 
