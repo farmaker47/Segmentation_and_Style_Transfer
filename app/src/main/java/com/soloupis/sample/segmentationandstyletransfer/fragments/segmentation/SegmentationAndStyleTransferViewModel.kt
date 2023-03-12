@@ -104,7 +104,7 @@ class SegmentationAndStyleTransferViewModel(application: Application) :
             imageSegmenter =
                     ImageSegmenter.createFromFileAndOptions(
                             getApplication(),
-                            "lite-model_deeplabv3_1_metadata_2.tflite",
+                            "deeplabv3.tflite",
                             options
                     )
 
