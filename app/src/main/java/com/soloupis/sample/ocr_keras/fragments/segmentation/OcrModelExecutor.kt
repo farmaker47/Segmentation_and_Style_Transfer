@@ -4,19 +4,22 @@ import android.content.Context
 import android.graphics.*
 import android.os.SystemClock
 import android.util.Log
+import androidx.core.graphics.ColorUtils
+import com.soloupis.sample.ocr_keras.utils.ImageUtils.Companion.scaleBitmapAndKeepRatio
 import org.tensorflow.lite.DataType
 import org.tensorflow.lite.Interpreter
 import org.tensorflow.lite.support.common.ops.NormalizeOp
 import org.tensorflow.lite.support.image.ImageProcessor
 import org.tensorflow.lite.support.image.TensorImage
 import org.tensorflow.lite.support.image.ops.ResizeOp
+import org.tensorflow.lite.support.tensorbuffer.TensorBuffer
 import java.io.FileInputStream
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.IntBuffer
 import java.nio.MappedByteBuffer
 import java.nio.channels.FileChannel
+import kotlin.random.Random
 
 
 data class ModelExecutionResult(
@@ -56,7 +59,35 @@ class OcrModelExecutor(
         private const val CONTENT_IMAGE_WIDTH = 200
         private const val CONTENT_IMAGE_HEIGHT = 31
 
-        private const val OCR_MODEL = "ocr_dr.tflite"
+        private const val OCR_MODEL = "deeplabv3.tflite"
+        const val NUM_CLASSES = 21
+        val segmentColors = IntArray(NUM_CLASSES)
+        val labelsArrays = arrayOf(
+            "background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus",
+            "car", "cat", "chair", "cow", "dining table", "dog", "horse", "motorbike",
+            "person", "potted plant", "sheep", "sofa", "train", "tv"
+        )
+
+        init {
+
+            val random = Random(System.currentTimeMillis())
+            segmentColors[0] = Color.TRANSPARENT
+            for (i in 1 until NUM_CLASSES) {
+                segmentColors[i] = Color.argb(
+                    (128),
+                    getRandomRGBInt(
+                        random
+                    ),
+                    getRandomRGBInt(
+                        random
+                    ),
+                    getRandomRGBInt(
+                        random
+                    )
+                )
+            }
+        }
+        private fun getRandomRGBInt(random: Random) = (255 * random.nextFloat()).toInt()
     }
 
     /*// Function for ML Binding
@@ -131,19 +162,17 @@ class OcrModelExecutor(
         try {
             Log.i(TAG, "running models")
 
-            fullExecutionTime = SystemClock.uptimeMillis()
-
             // Create an ImageProcessor with all ops required. For more ops, please
             // refer to the ImageProcessor Architecture.
             val imageProcessor = ImageProcessor.Builder()
                 .add(
                     ResizeOp(
-                        31,
-                        200,
+                        257,
+                        257,
                         ResizeOp.ResizeMethod.BILINEAR
                     )
                 )
-                .add(NormalizeOp(0f, 255.0f))
+                .add(NormalizeOp(127.5f, 127.5f))
                 .build()
 
             Log.i(TAG, "after imageProcessor")
@@ -155,7 +184,7 @@ class OcrModelExecutor(
             // Analysis code for every frame
             // Preprocess the image
 
-            tImage.load(androidGrayScale(contentImage))
+            tImage.load(contentImage)
             /*val bitmap = BitmapFactory.decodeByteArray(
                 bufferToByteArray(
                     getByteBufferNormalized(
@@ -193,12 +222,12 @@ class OcrModelExecutor(
             // Hence, the 'DataType' is defined as float32
 
 
-            /*val probabilityBuffer = TensorBuffer.createFixedSize(
-                intArrayOf(1, 48),
-                DataType.INT64
-            )*/
+            val probabilityBuffer = TensorBuffer.createFixedSize(
+                intArrayOf(1, 257, 257, 21),
+                DataType.FLOAT32
+            )
             //val outputs = HashMap<Int, Any>()
-            val arrayOutputs = Array(1) { LongArray(48) { 0 } }
+            //val arrayOutputs = Array(1) { LongArray(48) { 0 } }
             //outputs[0]=arrayOutputs
             Log.i(TAG, "after probability buffer")
 
@@ -210,18 +239,20 @@ class OcrModelExecutor(
                 ), probabilityBuffer.buffer
             )*/
 
+            fullExecutionTime = SystemClock.uptimeMillis()
             interpreterPredict.run(
-                getByteBufferNormalized(androidGrayScale(contentImage)), arrayOutputs
+                tImage.buffer, probabilityBuffer.buffer
             )
+            fullExecutionTime = SystemClock.uptimeMillis() - fullExecutionTime
+            Log.i(TAG, "Time to run everything: $fullExecutionTime")
+
+            val mask = convertBytebufferMaskToBitmap(probabilityBuffer.buffer,257,257,contentImage,segmentColors)
 
             //interpreterPredict.run(tImage.buffer, arrayOutputs)
 
             Log.i(TAG, "after running")
 
-            fullExecutionTime = SystemClock.uptimeMillis() - fullExecutionTime
-            Log.i(TAG, "Time to run everything: $fullExecutionTime")
-
-            return arrayOutputs[0]
+            return longArrayOf()
         } catch (e: Exception) {
 
             val exceptionLog = "something went wrong: ${e.message}"
@@ -229,6 +260,54 @@ class OcrModelExecutor(
 
             return longArrayOf()
         }
+    }
+
+    private fun convertBytebufferMaskToBitmap(
+        inputBuffer: ByteBuffer,
+        imageWidth: Int,
+        imageHeight: Int,
+        backgroundImage: Bitmap,
+        colors: IntArray
+    ): Triple<Bitmap, Bitmap, Map<String, Int>> {
+        val conf = Bitmap.Config.ARGB_8888
+        val maskBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
+        val resultBitmap = Bitmap.createBitmap(imageWidth, imageHeight, conf)
+        val scaledBackgroundImage =
+            scaleBitmapAndKeepRatio(
+                backgroundImage,
+                imageWidth,
+                imageHeight
+            )
+        val mSegmentBits = Array(imageWidth) { IntArray(imageHeight) }
+        val itemsFound = HashMap<String, Int>()
+        inputBuffer.rewind()
+
+        for (y in 0 until imageHeight) {
+            for (x in 0 until imageWidth) {
+                var maxVal = 0f
+                mSegmentBits[x][y] = 0
+
+                for (c in 0 until NUM_CLASSES) {
+                    val value = inputBuffer
+                        .getFloat((y * imageWidth * NUM_CLASSES + x * NUM_CLASSES + c) * 4)
+                    if (c == 0 || value > maxVal) {
+                        maxVal = value
+                        mSegmentBits[x][y] = c
+                    }
+                }
+                val label = labelsArrays[mSegmentBits[x][y]]
+                val color = colors[mSegmentBits[x][y]]
+                itemsFound.put(label, color)
+                val newPixelColor = ColorUtils.compositeColors(
+                    colors[mSegmentBits[x][y]],
+                    scaledBackgroundImage.getPixel(x, y)
+                )
+                resultBitmap.setPixel(x, y, newPixelColor)
+                maskBitmap.setPixel(x, y, colors[mSegmentBits[x][y]])
+            }
+        }
+
+        return Triple(resultBitmap, maskBitmap, itemsFound)
     }
 
     /*private fun getBitmap(buffer: ByteBuffer, width: Int, height: Int): Bitmap {

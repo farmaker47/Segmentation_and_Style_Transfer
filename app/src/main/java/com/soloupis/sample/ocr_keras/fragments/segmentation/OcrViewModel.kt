@@ -8,19 +8,14 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
-import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import org.koin.core.KoinComponent
 import org.koin.core.get
-import org.tensorflow.lite.task.vision.segmenter.ImageSegmenter
 import java.io.IOException
 
 class OcrViewModel(application: Application) :
         AndroidViewModel(application),
         KoinComponent {
 
-    private lateinit var imageSegmenter: ImageSegmenter
     private lateinit var scaledMaskBitmap: Bitmap
     private lateinit var outputArray: IntArray
     var startTime: Long = 0L
