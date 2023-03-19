@@ -13,12 +13,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.koin.core.KoinComponent
 import org.koin.core.get
-import org.koin.core.inject
 import org.tensorflow.lite.support.image.TensorImage
+import org.tensorflow.lite.task.core.BaseOptions
 import org.tensorflow.lite.task.vision.segmenter.ImageSegmenter
 import org.tensorflow.lite.task.vision.segmenter.OutputType
-import org.tensorflow.lite.task.vision.segmenter.Segmentation
 import java.io.IOException
+
 
 class SegmentationAndStyleTransferViewModel(application: Application) :
         AndroidViewModel(application),
@@ -98,9 +98,12 @@ class SegmentationAndStyleTransferViewModel(application: Application) :
         try {
             // Initialization
             startTime = SystemClock.uptimeMillis()
+            val baseOptions = BaseOptions.builder().useGpu().build()
             val options =
                     ImageSegmenter.ImageSegmenterOptions.builder()
-                            .setOutputType(OutputType.CATEGORY_MASK).build()
+                            .setOutputType(OutputType.CATEGORY_MASK)
+                        //.setBaseOptions(baseOptions)
+                        .build()
             imageSegmenter =
                     ImageSegmenter.createFromFileAndOptions(
                             getApplication(),
